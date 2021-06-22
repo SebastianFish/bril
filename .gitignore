@@ -8,3 +8,4 @@ yarn.lock
 hypothesis_*
 __pycache__
 .vscode
+.github/
