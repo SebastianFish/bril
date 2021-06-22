@@ -1,0 +1,41 @@
+# ARGS: 100000
+@main(input: int) {
+  initial_value: int = id input;
+  v1: int = const 100;
+  interest_rate_basis_points: int = id v1;
+  v2: int = const 12;
+  number_periods: int = id v2;
+  v3: int = id initial_value;
+  balance: int = id v3;
+  v4: int = const 0;
+  period_interest: int = id v4;
+  v6: int = const 0;
+  i: int = id v6;
+.for.cond.5:
+  v7: int = id i;
+  v8: int = id number_periods;
+  v9: bool = lt v7 v8;
+  br v9 .for.body.5 .for.end.5;
+.for.body.5:
+  v10: int = id balance;
+  v11: int = id interest_rate_basis_points;
+  v12: int = mul v10 v11;
+  period_interest: int = id v12;
+  v13: int = id period_interest;
+  v14: int = const 10000;
+  v15: int = div v13 v14;
+  period_interest: int = id v15;
+  v16: int = id balance;
+  v17: int = id period_interest;
+  v18: int = add v16 v17;
+  balance: int = id v18;
+  v19: int = id i;
+  v20: int = const 1;
+  v21: int = add v19 v20;
+  i: int = id v21;
+  jmp .for.cond.5;
+.for.end.5:
+  v22: int = id balance;
+  print v22;
+  v23: int = const 0;
+}
