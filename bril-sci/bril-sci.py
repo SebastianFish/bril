@@ -82,7 +82,10 @@ class HeapStore:
                 elif bril_type=='bool':
                     default_value=False
                 elif bril_type in self.structs:
-                    default_value={}
+                    objects=[dict() for x in range(amt)]
+                    new_allocation['objects']=objects
+                    result=HeapPointer(new_base,0)
+                    return result
                 else:
                     #something terrible has gone wrong
                     raise Exception("Unexpected type {0} encountered".format(bril_type))
@@ -118,17 +121,13 @@ class HeapStore:
             message="ERROR: Memory allocated by security group {0} but write was attempted by security group {1} in location base: {2}"
             message=message.format(alloc_sec_group,security_group,key.base)
             raise Exception(message)
-        data=self.storage[key.base]
+        data_array=self.storage[key.base]['objects']
+        item=data_array[key.offset]
         #print(data)
         if key.element:
-            #need to check to see if the element has been initialized in the struct
-            if key.element in data['objects'][key.offset]:
-                data['objects'][key.offset][key.element]=value
-            else:
-                message="ERROR: attempting to read uninitialized data"
-                raise Exception(message)
+            item[key.element]=value
         else:
-            data['objects'][key.offset]=value
+            item=value
             
     def load(self,key,security_group=0):
         data=self.storage[key.base]
@@ -149,7 +148,7 @@ class HeapStore:
                 struct_members=self.structs[data_type]
                 if element in struct_members:
                     result=HeapPointer(key.base,key.offset,element)
-                    return element
+                    return result
             else:
                 message="Error: Get Member can only be called on pointers to structs, but was called on key base {0} with type {1}"
                 message=message.format(key.base,data_type)
@@ -465,13 +464,17 @@ def eval_instr(state : dict,local_vars : dict ,current_instr) -> dict:
             heap.free(ptr,sec_group)
             return {'action':'next'}
         case 'store':
+            
             args=current_instr['args']
+            print(args)
             ptr_name=args[0]
             ptr=local_vars[ptr_name]
             variable = args[1]
             value = local_vars[variable]
             heap=state['heap']
             sec_group=state['security_group'][0]
+            print(ptr)
+            print(dir(ptr))
             heap.store(ptr,value,sec_group)
             return {'action':'next'}
         case 'load':
@@ -623,95 +626,255 @@ def eval_program(program):
 
 
 if __name__ == '__main__':
-    #read program from std-in
-    raw_prog=sys.stdin.read()
-#     raw_prog="""{
-#   "functions": [
-#     {
-#       "instrs": [
-#         {
-#           "dest": "v",
-#           "op": "const",
-#           "type": "int",
-#           "value": 4
-#         },
-#         {
-#           "dest": "o1",
-#           "op": "const",
-#           "type": "int",
-#           "value": 1
-#         },
-#         {
-#           "args": [
-#             "v"
-#           ],
-#           "dest": "bp",
-#           "op": "alloc",
-#           "type": {
-#             "ptr": "bool"
-#           }
-#         },
-#         {
-#           "args": [
-#             "bp",
-#             "o1"
-#           ],
-#           "dest": "bp2",
-#           "op": "ptradd",
-#           "type": {
-#             "ptr": "bool"
-#           }
-#         },
-#         {
-#           "dest": "b",
-#           "op": "const",
-#           "type": "bool",
-#           "value": true
-#         },
-#         {
-#           "args": [
-#             "bp",
-#             "b"
-#           ],
-#           "op": "store"
-#         },
-#         {
-#           "args": [
-#             "bp2",
-#             "b"
-#           ],
-#           "op": "store"
-#         },
-#         {
-#           "args": [
-#             "bp2"
-#           ],
-#           "dest": "b",
-#           "op": "load",
-#           "type": "bool"
-#         },
-#         {
-#           "args": [
-#             "b"
-#           ],
-#           "op": "print"
-#         },
-#         {
-#           "args": [
-#             "bp"
-#           ],
-#           "op": "free"
-#         }
-#       ],
-#       "name": "main"
-#     }
-#   ]
-# }"""
+  #
+  #read program from std-in
+  #    raw_prog=sys.stdin.read()
+  #sys.argv.append('3')
+  #sys.argv.append('6')
+  raw_prog="""{
+  "functions": [
+    {
+      "args": [
+        {
+          "name": "p",
+          "type": {
+            "ptr": "point"
+          }
+        }
+      ],
+      "instrs": [
+        {
+          "args": [
+            "p",
+            "x"
+          ],
+          "dest": "px",
+          "op": "getmbr",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "p",
+            "y"
+          ],
+          "dest": "py",
+          "op": "getmbr",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "px"
+          ],
+          "dest": "xv",
+          "op": "load",
+          "type": "int"
+        },
+        {
+          "args": [
+            "py"
+          ],
+          "dest": "yv",
+          "op": "load",
+          "type": "int"
+        },
+        {
+          "args": [
+            "xv",
+            "yv"
+          ],
+          "op": "print"
+        }
+      ],
+      "name": "print_point"
+    },
+    {
+      "args": [
+        {
+          "name": "a",
+          "type": "int"
+        },
+        {
+          "name": "b",
+          "type": "int"
+        }
+      ],
+      "instrs": [
+        {
+          "dest": "one",
+          "op": "const",
+          "type": "int",
+          "value": 1
+        },
+        {
+          "dest": "two",
+          "op": "const",
+          "type": "int",
+          "value": 2
+        },
+        {
+          "args": [
+            "two"
+          ],
+          "dest": "z",
+          "op": "alloc",
+          "type": {
+            "ptr": "point"
+          }
+        },
+        {
+          "args": [
+            "z",
+            "one"
+          ],
+          "dest": "z1",
+          "op": "ptradd",
+          "type": {
+            "ptr": "point"
+          }
+        },
+        {
+          "args": [
+            "z",
+            "x"
+          ],
+          "dest": "z0x",
+          "op": "getmbr",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "z",
+            "y"
+          ],
+          "dest": "z0y",
+          "op": "getmbr",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "z0x",
+            "a"
+          ],
+          "op": "store"
+        },
+        {
+          "args": [
+            "z0y",
+            "b"
+          ],
+          "op": "store"
+        },
+        {
+          "args": [
+            "z1",
+            "x"
+          ],
+          "dest": "z1x",
+          "op": "getmbr",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "z1",
+            "y"
+          ],
+          "dest": "z1y",
+          "op": "getmbr",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "a",
+            "b"
+          ],
+          "dest": "c",
+          "op": "mul",
+          "type": "int"
+        },
+        {
+          "args": [
+            "a",
+            "b"
+          ],
+          "dest": "d",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "args": [
+            "z1x",
+            "c"
+          ],
+          "op": "store"
+        },
+        {
+          "args": [
+            "z1y",
+            "d"
+          ],
+          "op": "store"
+        },
+        {
+          "args": [
+            "z"
+          ],
+          "funcs": [
+            "print_point"
+          ],
+          "op": "call"
+        },
+        {
+          "args": [
+            "z1"
+          ],
+          "funcs": [
+            "print_point"
+          ],
+          "op": "call"
+        },
+        {
+          "args": [
+            "z"
+          ],
+          "op": "free"
+        }
+      ],
+      "name": "main"
+    }
+  ],
+  "structs": [
+    {
+      "mbrs": [
+        {
+          "name": "x",
+          "type": "int"
+        },
+        {
+          "name": "y",
+          "type": "int"
+        }
+      ],
+      "name": "point"
+    }
+  ]
+}"""
 
-    #parse program text into JSON
-    prog=json.loads(raw_prog)
+  #parse program text into JSON
+  prog=json.loads(raw_prog)
 
-    result=eval_program(prog)
+  result=eval_program(prog)
 
 
 
