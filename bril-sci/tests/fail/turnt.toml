@@ -1,0 +1,2 @@
+command = "bril2json < {filename} | python3 ../../bril-sci.py  {args}"
+return_code = 1 # we want the interpreter to error out on these inputs
