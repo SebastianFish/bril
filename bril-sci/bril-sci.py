@@ -128,12 +128,12 @@ class HeapStore:
             message=message.format(alloc_sec_group,security_group,key.base)
             raise Exception(message)
         data_array=self.storage[key.base]['objects']
-        item=data_array[key.offset]
         #print(data)
         if key.element:
+            item=data_array[key.offset]
             item[key.element]=value
         else:
-            item=value
+            data_array[key.offset]=value
             
     def load(self,key,security_group=0):
         #check for null pointer
@@ -485,7 +485,7 @@ def eval_instr(state : dict,local_vars : dict ,current_instr) -> dict:
             variable = args[1]
             value = local_vars[variable]
             heap=state['heap']
-            sec_group=state['security_group'][0]
+            sec_group=state['security_group'][-1]
             heap.store(ptr,value,sec_group)
             return {'action':'next'}
         case 'load':
@@ -653,18 +653,6 @@ if __name__ == '__main__':
 #   raw_prog="""{
 #   "functions": [
 #     {
-#       "args": [
-#         {
-#           "name": "head",
-#           "type": "int"
-#         },
-#         {
-#           "name": "tail",
-#           "type": {
-#             "ptr": "int_list"
-#           }
-#         }
-#       ],
 #       "instrs": [
 #         {
 #           "dest": "one",
@@ -676,367 +664,71 @@ if __name__ == '__main__':
 #           "args": [
 #             "one"
 #           ],
-#           "dest": "p",
+#           "dest": "data",
 #           "op": "alloc",
 #           "type": {
-#             "ptr": "int_list"
-#           }
-#         },
-#         {
-#           "args": [
-#             "p",
-#             "elt"
-#           ],
-#           "dest": "phead",
-#           "op": "getmbr",
-#           "type": {
 #             "ptr": "int"
 #           }
 #         },
 #         {
 #           "args": [
-#             "p",
-#             "next"
-#           ],
-#           "dest": "ptail",
-#           "op": "getmbr",
-#           "type": {
-#             "ptr": {
-#               "ptr": "int_list"
-#             }
-#           }
-#         },
-#         {
-#           "args": [
-#             "phead",
-#             "head"
+#             "data",
+#             "one"
 #           ],
 #           "op": "store"
 #         },
 #         {
 #           "args": [
-#             "ptail",
-#             "tail"
+#             "data"
 #           ],
-#           "op": "store"
+#           "funcs": [
+#             "func2"
+#           ],
+#           "op": "call"
 #         },
 #         {
 #           "args": [
-#             "p"
+#             "data"
 #           ],
-#           "op": "ret"
-#         }
-#       ],
-#       "name": "cons",
-#       "type": {
-#         "ptr": "int_list"
-#       }
-#     },
-#     {
-#       "args": [
-#         {
-#           "name": "list",
-#           "type": {
-#             "ptr": "int_list"
-#           }
-#         }
-#       ],
-#       "instrs": [
-#         {
-#           "args": [
-#             "list"
-#           ],
-#           "dest": "empty",
-#           "op": "isnull",
-#           "type": "bool"
-#         },
-#         {
-#           "args": [
-#             "empty"
-#           ],
-#           "labels": [
-#             "end",
-#             "print"
-#           ],
-#           "op": "br"
-#         },
-#         {
-#           "label": "print"
-#         },
-#         {
-#           "args": [
-#             "list",
-#             "elt"
-#           ],
-#           "dest": "xp",
-#           "op": "getmbr",
-#           "type": {
-#             "ptr": "int"
-#           }
-#         },
-#         {
-#           "args": [
-#             "xp"
-#           ],
-#           "dest": "x",
+#           "dest": "new_data",
 #           "op": "load",
 #           "type": "int"
 #         },
 #         {
 #           "args": [
-#             "x"
+#             "new_data"
 #           ],
 #           "op": "print"
-#         },
-#         {
-#           "args": [
-#             "list",
-#             "next"
-#           ],
-#           "dest": "tp",
-#           "op": "getmbr",
-#           "type": {
-#             "ptr": {
-#               "ptr": "int_list"
-#             }
-#           }
-#         },
-#         {
-#           "args": [
-#             "tp"
-#           ],
-#           "dest": "t",
-#           "op": "load",
-#           "type": {
-#             "ptr": "int_list"
-#           }
-#         },
-#         {
-#           "args": [
-#             "t"
-#           ],
-#           "funcs": [
-#             "print_list"
-#           ],
-#           "op": "call"
-#         },
-#         {
-#           "label": "end"
-#         },
-#         {
-#           "op": "ret"
-#         }
-#       ],
-#       "name": "print_list"
-#     },
-#     {
-#       "args": [
-#         {
-#           "name": "list",
-#           "type": {
-#             "ptr": "int_list"
-#           }
-#         }
-#       ],
-#       "instrs": [
-#         {
-#           "args": [
-#             "list"
-#           ],
-#           "dest": "empty",
-#           "op": "isnull",
-#           "type": "bool"
-#         },
-#         {
-#           "args": [
-#             "empty"
-#           ],
-#           "labels": [
-#             "end",
-#             "freetail"
-#           ],
-#           "op": "br"
-#         },
-#         {
-#           "label": "freetail"
-#         },
-#         {
-#           "args": [
-#             "list",
-#             "next"
-#           ],
-#           "dest": "tp",
-#           "op": "getmbr",
-#           "type": {
-#             "ptr": {
-#               "ptr": "int_list"
-#             }
-#           }
-#         },
-#         {
-#           "args": [
-#             "tp"
-#           ],
-#           "dest": "t",
-#           "op": "load",
-#           "type": {
-#             "ptr": "int_list"
-#           }
-#         },
-#         {
-#           "args": [
-#             "t"
-#           ],
-#           "funcs": [
-#             "free_list"
-#           ],
-#           "op": "call"
-#         },
-#         {
-#           "args": [
-#             "list"
-#           ],
-#           "op": "free"
-#         },
-#         {
-#           "label": "end"
-#         },
-#         {
-#           "op": "ret"
-#         }
-#       ],
-#       "name": "free_list"
-#     },
-#     {
-#       "instrs": [
-#         {
-#           "dest": "a",
-#           "op": "const",
-#           "type": "int",
-#           "value": 2
-#         },
-#         {
-#           "dest": "b",
-#           "op": "const",
-#           "type": "int",
-#           "value": 3
-#         },
-#         {
-#           "dest": "c",
-#           "op": "const",
-#           "type": "int",
-#           "value": 5
-#         },
-#         {
-#           "dest": "d",
-#           "op": "const",
-#           "type": "int",
-#           "value": 8
-#         },
-#         {
-#           "dest": "n",
-#           "op": "const",
-#           "type": {
-#             "ptr": "int_list"
-#           },
-#           "value": 0
-#         },
-#         {
-#           "args": [
-#             "a",
-#             "n"
-#           ],
-#           "dest": "s0",
-#           "funcs": [
-#             "cons"
-#           ],
-#           "op": "call",
-#           "type": {
-#             "ptr": "int_list"
-#           }
-#         },
-#         {
-#           "args": [
-#             "b",
-#             "s0"
-#           ],
-#           "dest": "s1",
-#           "funcs": [
-#             "cons"
-#           ],
-#           "op": "call",
-#           "type": {
-#             "ptr": "int_list"
-#           }
-#         },
-#         {
-#           "args": [
-#             "c",
-#             "s1"
-#           ],
-#           "dest": "s2",
-#           "funcs": [
-#             "cons"
-#           ],
-#           "op": "call",
-#           "type": {
-#             "ptr": "int_list"
-#           }
-#         },
-#         {
-#           "args": [
-#             "d",
-#             "s2"
-#           ],
-#           "dest": "s3",
-#           "funcs": [
-#             "cons"
-#           ],
-#           "op": "call",
-#           "type": {
-#             "ptr": "int_list"
-#           }
-#         },
-#         {
-#           "args": [
-#             "s3"
-#           ],
-#           "funcs": [
-#             "print_list"
-#           ],
-#           "op": "call"
-#         },
-#         {
-#           "args": [
-#             "s3"
-#           ],
-#           "funcs": [
-#             "free_list"
-#           ],
-#           "op": "call"
-#         },
-#         {
-#           "op": "ret"
 #         }
 #       ],
 #       "name": "main"
-#     }
-#   ],
-#   "structs": [
+#     },
 #     {
-#       "mbrs": [
+#       "args": [
 #         {
-#           "name": "elt",
-#           "type": "int"
-#         },
-#         {
-#           "name": "next",
+#           "name": "x",
 #           "type": {
-#             "ptr": "int_list"
+#             "ptr": "int"
 #           }
 #         }
 #       ],
-#       "name": "int_list"
+#       "instrs": [
+#         {
+#           "dest": "new_x",
+#           "op": "const",
+#           "type": "int",
+#           "value": 42
+#         },
+#         {
+#           "args": [
+#             "x",
+#             "new_x"
+#           ],
+#           "op": "store"
+#         }
+#       ],
+#       "name": "func2",
+#       "security": "1"
 #     }
 #   ]
 # }"""
