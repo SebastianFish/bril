@@ -1,0 +1,17 @@
+@main  {
+    one: int = const 1;
+    data: ptr<int> = alloc one;
+    store data one;
+
+    call @func2 data;
+    new_data : int = load data;
+
+    free data;
+
+}
+
+@func2  (x : ptr<int> ) group :: 1
+{
+    val : int = load x;
+    print val;
+}
