@@ -94,8 +94,11 @@ class HeapStore:
         new_allocation['objects']=[default_value]*amt
         result=HeapPointer(new_base,0)
         return result
-
+    
     def free(self,key : HeapPointer, security_group=0):
+        #check for null pointer
+        if key.is_null():
+          raise Exception("Null Pointer Exception: Called free operation on a null pointer")
         #check if the current function has permission to free this memory
         alloc_sec_group=self.storage[key.base]['security_group']
         if alloc_sec_group!=security_group:
@@ -115,6 +118,9 @@ class HeapStore:
             raise Exception(message)
 
     def store(self,key : HeapPointer, value,security_group=0):
+        #check for null pointer
+        if key.is_null():
+          raise Exception("Null Pointer Exception: Called store operation on a null pointer")
         #check if the current function has permission to free this memory
         alloc_sec_group=self.storage[key.base]['security_group']
         if alloc_sec_group!=security_group:
@@ -130,6 +136,9 @@ class HeapStore:
             item=value
             
     def load(self,key,security_group=0):
+        #check for null pointer
+        if key.is_null():
+          raise Exception("Null Pointer Exception: Called load operation on a null pointer")
         data=self.storage[key.base]
         data=data['objects'][key.offset]
         if key.element:
@@ -139,6 +148,9 @@ class HeapStore:
         return(result)
 
     def getmbr(self,key,element,security_group=0):
+        #check for null pointer
+        if key.is_null():
+          raise Exception("Null Pointer Exception: Called get member operation on a null pointer")
         #check that the key points to a struct
         data=self.storage[key.base]
         data_type=data['bril_type']
@@ -176,6 +188,9 @@ def eval_instr(state : dict,local_vars : dict ,current_instr) -> dict:
                 value=float(value)
             elif bril_type=='bool':
                 value=bool(value)
+            elif 'ptr' in bril_type:
+                #only const operation involving pointers is to create a null one
+                value=HeapPointer(-1 , 0) # a negative base number indicates a null pointer
             else:
                 #we shouldn't reach this block
                 raise Exception("Unhandled data type {0} encountered".format(bril_type))
@@ -464,17 +479,13 @@ def eval_instr(state : dict,local_vars : dict ,current_instr) -> dict:
             heap.free(ptr,sec_group)
             return {'action':'next'}
         case 'store':
-            
             args=current_instr['args']
-            print(args)
             ptr_name=args[0]
             ptr=local_vars[ptr_name]
             variable = args[1]
             value = local_vars[variable]
             heap=state['heap']
             sec_group=state['security_group'][0]
-            print(ptr)
-            print(dir(ptr))
             heap.store(ptr,value,sec_group)
             return {'action':'next'}
         case 'load':
@@ -508,6 +519,14 @@ def eval_instr(state : dict,local_vars : dict ,current_instr) -> dict:
             dest=current_instr['dest']
             local_vars[dest]=value
             return {'action':'next'}
+        case 'isnull':
+            args=current_instr['args']
+            ptr_name=args[0]
+            ptr=local_vars[ptr_name]
+            value = ptr.is_null()
+            dest=current_instr['dest']
+            local_vars[dest]=value
+            return {'action':'next'}
         case 'phi':
             raise Exception("Phi nodes are not yet supported")
         case 'speculate':
@@ -516,6 +535,8 @@ def eval_instr(state : dict,local_vars : dict ,current_instr) -> dict:
             raise Exception("Speculative execution not yet supported")
         case 'commit':
             raise Exception("Speculative execution not yet supported")
+        case _:
+          raise Exception("Unhandled instruction type")
 
 
         
@@ -628,248 +649,397 @@ def eval_program(program):
 if __name__ == '__main__':
   #
   #read program from std-in
-  #    raw_prog=sys.stdin.read()
-  #sys.argv.append('3')
-  #sys.argv.append('6')
-  raw_prog="""{
-  "functions": [
-    {
-      "args": [
-        {
-          "name": "p",
-          "type": {
-            "ptr": "point"
-          }
-        }
-      ],
-      "instrs": [
-        {
-          "args": [
-            "p",
-            "x"
-          ],
-          "dest": "px",
-          "op": "getmbr",
-          "type": {
-            "ptr": "int"
-          }
-        },
-        {
-          "args": [
-            "p",
-            "y"
-          ],
-          "dest": "py",
-          "op": "getmbr",
-          "type": {
-            "ptr": "int"
-          }
-        },
-        {
-          "args": [
-            "px"
-          ],
-          "dest": "xv",
-          "op": "load",
-          "type": "int"
-        },
-        {
-          "args": [
-            "py"
-          ],
-          "dest": "yv",
-          "op": "load",
-          "type": "int"
-        },
-        {
-          "args": [
-            "xv",
-            "yv"
-          ],
-          "op": "print"
-        }
-      ],
-      "name": "print_point"
-    },
-    {
-      "args": [
-        {
-          "name": "a",
-          "type": "int"
-        },
-        {
-          "name": "b",
-          "type": "int"
-        }
-      ],
-      "instrs": [
-        {
-          "dest": "one",
-          "op": "const",
-          "type": "int",
-          "value": 1
-        },
-        {
-          "dest": "two",
-          "op": "const",
-          "type": "int",
-          "value": 2
-        },
-        {
-          "args": [
-            "two"
-          ],
-          "dest": "z",
-          "op": "alloc",
-          "type": {
-            "ptr": "point"
-          }
-        },
-        {
-          "args": [
-            "z",
-            "one"
-          ],
-          "dest": "z1",
-          "op": "ptradd",
-          "type": {
-            "ptr": "point"
-          }
-        },
-        {
-          "args": [
-            "z",
-            "x"
-          ],
-          "dest": "z0x",
-          "op": "getmbr",
-          "type": {
-            "ptr": "int"
-          }
-        },
-        {
-          "args": [
-            "z",
-            "y"
-          ],
-          "dest": "z0y",
-          "op": "getmbr",
-          "type": {
-            "ptr": "int"
-          }
-        },
-        {
-          "args": [
-            "z0x",
-            "a"
-          ],
-          "op": "store"
-        },
-        {
-          "args": [
-            "z0y",
-            "b"
-          ],
-          "op": "store"
-        },
-        {
-          "args": [
-            "z1",
-            "x"
-          ],
-          "dest": "z1x",
-          "op": "getmbr",
-          "type": {
-            "ptr": "int"
-          }
-        },
-        {
-          "args": [
-            "z1",
-            "y"
-          ],
-          "dest": "z1y",
-          "op": "getmbr",
-          "type": {
-            "ptr": "int"
-          }
-        },
-        {
-          "args": [
-            "a",
-            "b"
-          ],
-          "dest": "c",
-          "op": "mul",
-          "type": "int"
-        },
-        {
-          "args": [
-            "a",
-            "b"
-          ],
-          "dest": "d",
-          "op": "add",
-          "type": "int"
-        },
-        {
-          "args": [
-            "z1x",
-            "c"
-          ],
-          "op": "store"
-        },
-        {
-          "args": [
-            "z1y",
-            "d"
-          ],
-          "op": "store"
-        },
-        {
-          "args": [
-            "z"
-          ],
-          "funcs": [
-            "print_point"
-          ],
-          "op": "call"
-        },
-        {
-          "args": [
-            "z1"
-          ],
-          "funcs": [
-            "print_point"
-          ],
-          "op": "call"
-        },
-        {
-          "args": [
-            "z"
-          ],
-          "op": "free"
-        }
-      ],
-      "name": "main"
-    }
-  ],
-  "structs": [
-    {
-      "mbrs": [
-        {
-          "name": "x",
-          "type": "int"
-        },
-        {
-          "name": "y",
-          "type": "int"
-        }
-      ],
-      "name": "point"
-    }
-  ]
-}"""
+  raw_prog=sys.stdin.read()
+#   raw_prog="""{
+#   "functions": [
+#     {
+#       "args": [
+#         {
+#           "name": "head",
+#           "type": "int"
+#         },
+#         {
+#           "name": "tail",
+#           "type": {
+#             "ptr": "int_list"
+#           }
+#         }
+#       ],
+#       "instrs": [
+#         {
+#           "dest": "one",
+#           "op": "const",
+#           "type": "int",
+#           "value": 1
+#         },
+#         {
+#           "args": [
+#             "one"
+#           ],
+#           "dest": "p",
+#           "op": "alloc",
+#           "type": {
+#             "ptr": "int_list"
+#           }
+#         },
+#         {
+#           "args": [
+#             "p",
+#             "elt"
+#           ],
+#           "dest": "phead",
+#           "op": "getmbr",
+#           "type": {
+#             "ptr": "int"
+#           }
+#         },
+#         {
+#           "args": [
+#             "p",
+#             "next"
+#           ],
+#           "dest": "ptail",
+#           "op": "getmbr",
+#           "type": {
+#             "ptr": {
+#               "ptr": "int_list"
+#             }
+#           }
+#         },
+#         {
+#           "args": [
+#             "phead",
+#             "head"
+#           ],
+#           "op": "store"
+#         },
+#         {
+#           "args": [
+#             "ptail",
+#             "tail"
+#           ],
+#           "op": "store"
+#         },
+#         {
+#           "args": [
+#             "p"
+#           ],
+#           "op": "ret"
+#         }
+#       ],
+#       "name": "cons",
+#       "type": {
+#         "ptr": "int_list"
+#       }
+#     },
+#     {
+#       "args": [
+#         {
+#           "name": "list",
+#           "type": {
+#             "ptr": "int_list"
+#           }
+#         }
+#       ],
+#       "instrs": [
+#         {
+#           "args": [
+#             "list"
+#           ],
+#           "dest": "empty",
+#           "op": "isnull",
+#           "type": "bool"
+#         },
+#         {
+#           "args": [
+#             "empty"
+#           ],
+#           "labels": [
+#             "end",
+#             "print"
+#           ],
+#           "op": "br"
+#         },
+#         {
+#           "label": "print"
+#         },
+#         {
+#           "args": [
+#             "list",
+#             "elt"
+#           ],
+#           "dest": "xp",
+#           "op": "getmbr",
+#           "type": {
+#             "ptr": "int"
+#           }
+#         },
+#         {
+#           "args": [
+#             "xp"
+#           ],
+#           "dest": "x",
+#           "op": "load",
+#           "type": "int"
+#         },
+#         {
+#           "args": [
+#             "x"
+#           ],
+#           "op": "print"
+#         },
+#         {
+#           "args": [
+#             "list",
+#             "next"
+#           ],
+#           "dest": "tp",
+#           "op": "getmbr",
+#           "type": {
+#             "ptr": {
+#               "ptr": "int_list"
+#             }
+#           }
+#         },
+#         {
+#           "args": [
+#             "tp"
+#           ],
+#           "dest": "t",
+#           "op": "load",
+#           "type": {
+#             "ptr": "int_list"
+#           }
+#         },
+#         {
+#           "args": [
+#             "t"
+#           ],
+#           "funcs": [
+#             "print_list"
+#           ],
+#           "op": "call"
+#         },
+#         {
+#           "label": "end"
+#         },
+#         {
+#           "op": "ret"
+#         }
+#       ],
+#       "name": "print_list"
+#     },
+#     {
+#       "args": [
+#         {
+#           "name": "list",
+#           "type": {
+#             "ptr": "int_list"
+#           }
+#         }
+#       ],
+#       "instrs": [
+#         {
+#           "args": [
+#             "list"
+#           ],
+#           "dest": "empty",
+#           "op": "isnull",
+#           "type": "bool"
+#         },
+#         {
+#           "args": [
+#             "empty"
+#           ],
+#           "labels": [
+#             "end",
+#             "freetail"
+#           ],
+#           "op": "br"
+#         },
+#         {
+#           "label": "freetail"
+#         },
+#         {
+#           "args": [
+#             "list",
+#             "next"
+#           ],
+#           "dest": "tp",
+#           "op": "getmbr",
+#           "type": {
+#             "ptr": {
+#               "ptr": "int_list"
+#             }
+#           }
+#         },
+#         {
+#           "args": [
+#             "tp"
+#           ],
+#           "dest": "t",
+#           "op": "load",
+#           "type": {
+#             "ptr": "int_list"
+#           }
+#         },
+#         {
+#           "args": [
+#             "t"
+#           ],
+#           "funcs": [
+#             "free_list"
+#           ],
+#           "op": "call"
+#         },
+#         {
+#           "args": [
+#             "list"
+#           ],
+#           "op": "free"
+#         },
+#         {
+#           "label": "end"
+#         },
+#         {
+#           "op": "ret"
+#         }
+#       ],
+#       "name": "free_list"
+#     },
+#     {
+#       "instrs": [
+#         {
+#           "dest": "a",
+#           "op": "const",
+#           "type": "int",
+#           "value": 2
+#         },
+#         {
+#           "dest": "b",
+#           "op": "const",
+#           "type": "int",
+#           "value": 3
+#         },
+#         {
+#           "dest": "c",
+#           "op": "const",
+#           "type": "int",
+#           "value": 5
+#         },
+#         {
+#           "dest": "d",
+#           "op": "const",
+#           "type": "int",
+#           "value": 8
+#         },
+#         {
+#           "dest": "n",
+#           "op": "const",
+#           "type": {
+#             "ptr": "int_list"
+#           },
+#           "value": 0
+#         },
+#         {
+#           "args": [
+#             "a",
+#             "n"
+#           ],
+#           "dest": "s0",
+#           "funcs": [
+#             "cons"
+#           ],
+#           "op": "call",
+#           "type": {
+#             "ptr": "int_list"
+#           }
+#         },
+#         {
+#           "args": [
+#             "b",
+#             "s0"
+#           ],
+#           "dest": "s1",
+#           "funcs": [
+#             "cons"
+#           ],
+#           "op": "call",
+#           "type": {
+#             "ptr": "int_list"
+#           }
+#         },
+#         {
+#           "args": [
+#             "c",
+#             "s1"
+#           ],
+#           "dest": "s2",
+#           "funcs": [
+#             "cons"
+#           ],
+#           "op": "call",
+#           "type": {
+#             "ptr": "int_list"
+#           }
+#         },
+#         {
+#           "args": [
+#             "d",
+#             "s2"
+#           ],
+#           "dest": "s3",
+#           "funcs": [
+#             "cons"
+#           ],
+#           "op": "call",
+#           "type": {
+#             "ptr": "int_list"
+#           }
+#         },
+#         {
+#           "args": [
+#             "s3"
+#           ],
+#           "funcs": [
+#             "print_list"
+#           ],
+#           "op": "call"
+#         },
+#         {
+#           "args": [
+#             "s3"
+#           ],
+#           "funcs": [
+#             "free_list"
+#           ],
+#           "op": "call"
+#         },
+#         {
+#           "op": "ret"
+#         }
+#       ],
+#       "name": "main"
+#     }
+#   ],
+#   "structs": [
+#     {
+#       "mbrs": [
+#         {
+#           "name": "elt",
+#           "type": "int"
+#         },
+#         {
+#           "name": "next",
+#           "type": {
+#             "ptr": "int_list"
+#           }
+#         }
+#       ],
+#       "name": "int_list"
+#     }
+#   ]
+# }"""
 
   #parse program text into JSON
   prog=json.loads(raw_prog)
