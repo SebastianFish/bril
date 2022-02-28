@@ -22,7 +22,7 @@ start: (struct | func)*
 struct: STRUCT IDENT "=" "{" mbr* "}"
 mbr: IDENT ":" type ";"
 
-func: FUNC ["(" arg_list? ")"] [tyann] "{" instr* "}"
+func: FUNC ["(" arg_list? ")"] [tyann] [security_group] "{" instr* "}"
 arg_list: | arg ("," arg)*
 arg: IDENT ":" type
 ?instr: const | vop | eop | label
@@ -35,6 +35,7 @@ label.1: LABEL ":"
 op: IDENT (FUNC | LABEL | IDENT)*
 
 ?tyann: ":" type
+?security_group: "group" "::" SIGNED_INT
 
 lit: SIGNED_INT  -> int
   | BOOL         -> bool
@@ -77,8 +78,8 @@ class JSONTransformer(lark.Transformer):
             }
 
     def func(self, items):
-        name, args, typ = items[:3]
-        instrs = items[3:]
+        name, args, typ, sec_group = items[:4]
+        instrs = items[4:]
         func = {
             'name': str(name)[1:],  # Strip `@`.
             'instrs': instrs,
@@ -87,6 +88,8 @@ class JSONTransformer(lark.Transformer):
             func['args'] = args
         if typ:
             func['type'] = typ
+        if sec_group:
+            func['security']=int(sec_group)
         return func
 
     def arg(self, items):
